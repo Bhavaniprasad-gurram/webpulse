@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}WebPulse — Website Monitoring{% endblock %}</title>
+  <!-- Vendored locally (static/vendor/) so the UI works offline — no CDN needed -->
+  <link href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='vendor/bootstrap-icons.min.css') }}" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  <aside class="wp-sidebar" id="wpSidebar">
+    <a href="{{ url_for('dashboard') }}" class="wp-brand">
+      <span class="wp-brand-icon"><i class="bi bi-activity"></i></span>
+      <span class="wp-brand-name">WebPulse<small>Monitoring</small></span>
+    </a>
+    <nav class="wp-nav">
+      <div class="wp-nav-label">Monitoring</div>
+      <a href="{{ url_for('dashboard') }}" class="wp-nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}"><i class="bi bi-speedometer2"></i>Dashboard</a>
+      <a href="{{ url_for('website_list') }}" class="wp-nav-item {% if request.endpoint in ('website_list', 'website_edit_form', 'website_edit_save') %}active{% endif %}"><i class="bi bi-globe"></i>Websites</a>
+      <a href="{{ url_for('incidents') }}" class="wp-nav-item {% if request.endpoint == 'incidents' %}active{% endif %}"><i class="bi bi-exclamation-triangle"></i>Incidents</a>
+      <a href="{{ url_for('analytics') }}" class="wp-nav-item {% if request.endpoint == 'analytics' %}active{% endif %}"><i class="bi bi-graph-up"></i>Analytics</a>
+      <div class="wp-nav-label">Administration</div>
+      <a href="{{ url_for('settings') }}" class="wp-nav-item {% if request.endpoint == 'settings' %}active{% endif %}"><i class="bi bi-gear"></i>Settings</a>
+    </nav>
+    <div class="wp-sidebar-footer">
+      <span class="wp-db-dot {% if not db_connected|default(true) %}off{% endif %}"></span>
+      Database {% if db_connected|default(true) %}Connected{% else %}Disconnected{% endif %}
+    </div>
+  </aside>
+  <div class="wp-sidebar-overlay" id="wpSidebarOverlay"></div>
+
+  <main class="wp-main">
+    <header class="wp-topbar">
+      <span class="crumb">WebPulse <span class="mx-1">/</span> <strong>{% block page_title %}Dashboard{% endblock %}</strong></span>
+      <div class="d-flex align-items-center gap-2">
+        {% block topbar_actions %}{% endblock %}
+        <button class="btn-icon" id="themeToggleBtn" title="Toggle light / dark" onclick="toggleTheme()" type="button"><i class="bi bi-sun" id="themeIcon"></i></button>
+        <button class="btn-icon" title="Refresh" onclick="location.reload()" type="button"><i class="bi bi-arrow-clockwise"></i></button>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="wp-flash">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category in ('error', 'danger') else category|default('info') }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="wp-content">{% block content %}{% endblock %}</div>
+  </main>
+
+  <button class="wp-sidebar-toggle" id="wpSidebarToggle" aria-label="Toggle navigation" type="button"><i class="bi bi-list"></i></button>
+
+  <script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+  <script>
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-bs-theme', theme);
+      localStorage.setItem('webpulse-theme', theme);
+      var icon = document.getElementById('themeIcon');
+      if (icon) icon.className = theme === 'dark' ? 'bi bi-sun' : 'bi bi-moon-stars';
+      if (typeof Chart !== 'undefined') {
+        Chart.defaults.color = theme === 'dark' ? '#94a3b8' : '#64748b';
+      }
+    }
+    function toggleTheme() {
+      var cur = document.documentElement.getAttribute('data-bs-theme') || 'light';
+      applyTheme(cur === 'dark' ? 'light' : 'dark');
+    }
+    (function () { applyTheme(localStorage.getItem('webpulse-theme') || 'dark'); })();
+    (function () {
+      var sidebar = document.getElementById('wpSidebar'), overlay = document.getElementById('wpSidebarOverlay'), toggle = document.getElementById('wpSidebarToggle');
+      if (toggle && sidebar && overlay) {
+        toggle.addEventListener('click', function () { sidebar.classList.add('show'); overlay.classList.add('show'); });
+        overlay.addEventListener('click', function () { sidebar.classList.remove('show'); overlay.classList.remove('show'); });
+      }
+      document.querySelectorAll('.wp-flash .alert').forEach(function (a) {
+        setTimeout(function () { var i = bootstrap.Alert.getOrCreateInstance(a); if (i) i.close(); }, 5000);
+      });
+    })();
+    if (typeof Chart !== 'undefined') {
+      Chart.defaults.font.family = "'Inter', sans-serif";
+      Chart.defaults.font.size = 12;
+      Chart.defaults.plugins.legend.labels.usePointStyle = true;
+      Chart.defaults.plugins.tooltip.cornerRadius = 8;
+      Chart.defaults.plugins.tooltip.padding = 10;
+      Chart.defaults.elements.line.tension = 0.35;
+    }
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

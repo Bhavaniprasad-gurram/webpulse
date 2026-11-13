@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block page_title %}Settings{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-gear"></i>Settings</h1>
+    <p class="page-subtitle">Monitoring defaults, alerts, database, and the background worker. Values come from your <code>.env</code> file.</p>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="panel h-100">
+      <div class="panel-head"><h2 class="panel-title"><i class="bi bi-sliders"></i>Monitoring defaults</h2></div>
+      <div class="panel-body">
+        <div class="mb-3"><label class="form-label">Check interval</label><input type="text" class="form-control" value="{{ config.DEFAULT_CHECK_INTERVAL }}s" readonly><div class="form-text">Default time between checks for new websites.</div></div>
+        <div class="mb-3"><label class="form-label">Request timeout</label><input type="text" class="form-control" value="{{ config.DEFAULT_TIMEOUT }}s" readonly><div class="form-text">Maximum wait before a check is marked failed.</div></div>
+        <div class="mb-3"><label class="form-label">Failure threshold</label><input type="text" class="form-control" value="{{ config.FAILURE_THRESHOLD }} consecutive failures" readonly><div class="form-text">Consecutive failures before an incident is created.</div></div>
+        <div class="mb-0"><label class="form-label">Slow response threshold</label><input type="text" class="form-control" value="{{ config.SLOW_RESPONSE_MS }}ms" readonly><div class="form-text">Responses above this are flagged as degraded.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="panel h-100">
+      <div class="panel-head"><h2 class="panel-title"><i class="bi bi-envelope"></i>Email alerts</h2></div>
+      <div class="panel-body">
+        {% if smtp_configured %}
+        <div class="alert alert-success d-flex align-items-center"><i class="bi bi-check-circle-fill me-2 fs-5"></i><div><strong>SMTP configured</strong><div class="small">Email alerts are active and will be sent when incidents occur.</div></div></div>
+        {% else %}
+        <div class="alert alert-warning d-flex align-items-center"><i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i><div><strong>SMTP not configured</strong><div class="small">Set SMTP variables in <code>.env</code> to enable email alerts.</div></div></div>
+        {% endif %}
+        <button class="btn btn-sm btn-outline-secondary w-100 mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#smtpDetails" aria-expanded="false"><i class="bi bi-chevron-down me-1"></i>Show SMTP details</button>
+        <div class="collapse" id="smtpDetails">
+          <table class="table kv-table mb-0"><tbody>
+            <tr><td>SMTP host</td><td><code>{{ config.SMTP_HOST or '—' }}</code></td></tr>
+            <tr><td>SMTP port</td><td><code>{{ config.SMTP_PORT or '—' }}</code></td></tr>
+            <tr><td>Sender</td><td><code>{{ config.ALERT_SENDER or '—' }}</code></td></tr>
+            <tr><td>Recipient</td><td><code>{{ config.ALERT_RECIPIENT or '—' }}</code></td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="panel h-100">
+      <div class="panel-head"><h2 class="panel-title"><i class="bi bi-database"></i>Database</h2></div>
+      <div class="panel-body">
+        {% if db_status[0] %}
+        <div class="alert alert-success d-flex align-items-center"><i class="bi bi-check-circle-fill me-2 fs-5"></i><div><strong>Connected</strong><div class="small">{{ db_status[1] }}</div></div></div>
+        {% else %}
+        <div class="alert alert-danger d-flex align-items-center"><i class="bi bi-x-circle-fill me-2 fs-5"></i><div><strong>Connection failed</strong><div class="small">{{ db_status[1] }}</div></div></div>
+        {% endif %}
+        <form method="POST" action="/settings/test-db" class="mb-3"><button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-repeat me-1"></i>Test connection</button></form>
+        <h6 class="fw-semibold small text-uppercase text-muted mb-2">Record counts</h6>
+        <table class="table kv-table mb-0"><tbody>
+          <tr><td><i class="bi bi-globe2 me-2"></i>Websites</td><td class="text-end"><span class="count-pill">{{ record_counts.websites }}</span></td></tr>
+          <tr><td><i class="bi bi-clipboard-data me-2"></i>Check results</td><td class="text-end"><span class="count-pill">{{ '{:,}'.format(record_counts.results) }}</span></td></tr>
+          <tr><td><i class="bi bi-flag me-2"></i>Incidents</td><td class="text-end"><span class="count-pill">{{ record_counts.incidents }}</span></td></tr>
+          <tr><td><i class="bi bi-bell me-2"></i>Alerts sent</td><td class="text-end"><span class="count-pill">{{ record_counts.alerts }}</span></td></tr>
+        </tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="panel h-100">
+      <div class="panel-head"><h2 class="panel-title"><i class="bi bi-cpu"></i>Background worker</h2></div>
+      <div class="panel-body">
+        <p class="text-muted">The worker polls each website at its configured interval, stores results, creates incidents after consecutive failures, and sends email alerts. It runs separately from the web server.</p>
+        <h6 class="fw-semibold small text-uppercase text-muted mb-2">Start the worker</h6>
+        <pre class="code-block"><code>python -m workers.monitor_worker</code></pre>
+        <div class="form-text mt-2">Run in a separate terminal, or configure it as a system service for production.</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

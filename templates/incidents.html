@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block page_title %}Incidents{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-flag"></i>Incidents</h1>
+    <p class="page-subtitle">Active outages and the full incident history.</p>
+  </div>
+</div>
+
+{% if open_incidents %}
+<div class="mb-4">
+  <h5 class="fw-semibold mb-3 danger-heading"><i class="bi bi-exclamation-octagon-fill me-2"></i>Active outages <span class="count-pill">{{ open_incidents|length }}</span></h5>
+  <div class="row g-3">
+    {% for inc in open_incidents %}
+    <div class="col-md-6 col-lg-4">
+      <div class="panel panel-accent-danger h-100">
+        <div class="panel-body">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h6 class="fw-bold mb-0">{{ inc.website_name }}</h6>
+            <span class="status-pill is-down">Open</span>
+          </div>
+          {% if inc.website_url %}<small class="text-muted text-mono d-block mb-2">{{ inc.website_url }}</small>{% endif %}
+          <small class="text-muted d-block mb-1"><i class="bi bi-clock me-1"></i>Started: {{ inc.started_at.strftime('%b %d, %H:%M') if inc.started_at is not string else inc.started_at }}</small>
+          <small class="text-muted d-block mb-2"><i class="bi bi-hourglass-split me-1"></i>Duration: {{ inc.duration_str }}</small>
+          {% if inc.cause_summary %}<small class="text-muted d-block"><i class="bi bi-info-circle me-1"></i>{{ inc.cause_summary }}</small>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="alert alert-soft-success d-flex align-items-center mb-4" role="alert">
+  <i class="bi bi-check-circle-fill fs-4 me-3"></i>
+  <div><strong>All systems operational</strong><div class="small text-muted">No active outages detected. All monitored websites are responding normally.</div></div>
+</div>
+{% endif %}
+
+<div class="panel mb-4">
+  <div class="panel-body py-3">
+    <form method="GET" action="/incidents" class="row g-2 align-items-end">
+      <div class="col-auto">
+        <label for="website_id" class="form-label small mb-1">Filter by website</label>
+        <select class="form-select form-select-sm" id="website_id" name="website_id" onchange="this.form.submit()">
+          <option value="">All websites</option>
+          {% for ws in websites %}<option value="{{ ws.id }}" {{ 'selected' if request.args.get('website_id')|int == ws.id }}>{{ ws.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-auto"><button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-funnel me-1"></i>Filter</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head"><h2 class="panel-title"><i class="bi bi-clock-history"></i>Incident history</h2></div>
+  <div class="panel-body flush">
+    {% if history %}
+    <div class="table-responsive">
+      <table class="table wp-table align-middle mb-0">
+        <thead><tr><th class="ps-4">ID</th><th>Website</th><th>Status</th><th>Started</th><th>Resolved</th><th>Duration</th><th>Cause</th></tr></thead>
+        <tbody>
+          {% for inc in history %}
+          <tr>
+            <td class="ps-4"><code>#{{ inc.id }}</code></td>
+            <td class="cell-main">{{ inc.website_name }}</td>
+            <td>{% if inc.status == 'OPEN' %}<span class="status-pill is-down">Open</span>{% elif inc.status == 'RESOLVED' %}<span class="status-pill is-up">Resolved</span>{% else %}<span class="status-pill is-paused">{{ inc.status }}</span>{% endif %}</td>
+            <td><small>{{ inc.started_at.strftime('%b %d, %H:%M') if inc.started_at is not string else inc.started_at }}</small></td>
+            <td>{% if inc.resolved_at %}<small>{{ inc.resolved_at.strftime('%b %d, %H:%M') if inc.resolved_at is not string else inc.resolved_at }}</small>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td><small>{{ inc.duration_str or '—' }}</small></td>
+            <td><small class="text-muted">{{ inc.cause_summary or '—' }}</small></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-icon"><i class="bi bi-inbox"></i></div><h6>No incidents found</h6><p class="text-muted small mb-0">{% if request.args.get('website_id') %}No incidents match the selected filter.{% else %}There are no recorded incidents yet.{% endif %}</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

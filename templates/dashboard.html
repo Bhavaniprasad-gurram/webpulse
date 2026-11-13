@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-speedometer2"></i>Dashboard</h1>
+    <p class="page-subtitle">Live status of every monitored site, at a glance.</p>
+  </div>
+  <div class="page-actions">
+    <span class="text-muted small">Last refreshed: {{ now.strftime('%b %d, %Y %I:%M %p') if now is defined and now is not none else '—' }}</span>
+    <a class="btn btn-primary" href="{{ url_for('website_list') }}"><i class="bi bi-plus-lg me-1"></i>Add website</a>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-top"><span class="kpi-label">Monitored sites</span><span class="kpi-icon blue"><i class="bi bi-globe2"></i></span></div>
+    <div class="kpi-value">{{ kpis.total_websites }}</div>
+    <div class="kpi-sub">{{ kpis.pending_count }} pending check{{ 's' if kpis.pending_count != 1 }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top"><span class="kpi-label">Operational</span><span class="kpi-icon green"><i class="bi bi-check-circle"></i></span></div>
+    <div class="kpi-value green">{{ kpis.operational_count }}</div>
+    <div class="kpi-sub">{{ kpis.degraded_count }} degraded</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top"><span class="kpi-label">Active outages</span><span class="kpi-icon red"><i class="bi bi-exclamation-triangle"></i></span></div>
+    <div class="kpi-value red">{{ kpis.down_count }}</div>
+    <div class="kpi-sub">{{ kpis.active_incidents }} incident{{ 's' if kpis.active_incidents != 1 }}</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top"><span class="kpi-label">Uptime · 24h</span><span class="kpi-icon blue"><i class="bi bi-graph-up"></i></span></div>
+    <div class="kpi-value">{{ "%.2f"|format(kpis.overall_uptime_24h) if kpis.overall_uptime_24h is not none else '—' }}{% if kpis.overall_uptime_24h is not none %}<small>%</small>{% endif %}</div>
+    <div class="kpi-sub">Across all sites</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-top"><span class="kpi-label">Avg latency</span><span class="kpi-icon amber"><i class="bi bi-lightning-charge"></i></span></div>
+    <div class="kpi-value">{{ kpis.avg_response_time_ms|round|int if kpis.avg_response_time_ms is not none else '—' }} {% if kpis.avg_response_time_ms is not none %}<small>ms</small>{% endif %}</div>
+    <div class="kpi-sub">Mean response time</div>
+  </div>
+</div>
+
+<div class="panel mb-4">
+  <div class="panel-head">
+    <h2 class="panel-title"><i class="bi bi-hdd-stack"></i>Websites fleet status</h2>
+    <span class="count-pill">{{ websites|length }} site{{ 's' if websites|length != 1 }}</span>
+  </div>
+  <div class="panel-body flush">
+    <div class="table-responsive">
+      <table class="table wp-table align-middle mb-0">
+        <thead><tr><th class="ps-4">Website</th><th>Status</th><th>Latency</th><th>HTTP</th><th>24h uptime</th><th>Last checked</th><th class="text-end pe-4">Action</th></tr></thead>
+        <tbody>
+          {% for site in websites %}
+          <tr>
+            <td class="ps-4"><div class="cell-main">{{ site.name }}</div><div class="cell-sub">{{ site.url }}</div></td>
+            <td>
+              {% if site.status == 'OPERATIONAL' %}<span class="status-pill is-up">Operational</span>
+              {% elif site.status == 'DOWN' %}<span class="status-pill is-down">Down</span>
+              {% elif site.status == 'DEGRADED' %}<span class="status-pill is-degraded">Degraded</span>
+              {% elif site.status == 'PENDING' %}<span class="status-pill is-pending">Pending</span>
+              {% else %}<span class="status-pill is-paused">Paused</span>{% endif %}
+            </td>
+            <td>{% if site.latency_ms is not none %}<span class="{% if site.latency_ms > 1000 %}text-danger{% elif site.latency_ms > 500 %}text-warning{% else %}text-body{% endif %}">{{ site.latency_ms|round|int }} ms</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{% if site.http_code %}<code class="{% if site.http_code >= 200 and site.http_code < 300 %}text-success{% elif site.http_code >= 400 %}text-danger{% else %}text-warning{% endif %}">{{ site.http_code }}</code>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>
+              {% if site.uptime_24h is not none %}
+              <span class="uptime-track"><span class="uptime-bar"><span class="uptime-fill {% if site.uptime_24h >= 99 %}good{% elif site.uptime_24h >= 95 %}warn{% else %}bad{% endif %}" style="width:{{ site.uptime_24h }}%"></span></span><small>{{ "%.1f"|format(site.uptime_24h) }}%</small></span>
+              {% else %}<span class="text-muted">—</span>{% endif %}
+            </td>
+            <td><small class="text-muted">{{ site.last_checked.strftime('%b %d, %H:%M') if site.last_checked is not string and site.last_checked else 'Never' }}</small></td>
+            <td class="text-end pe-4">
+              <form method="POST" action="/websites/{{ site.id }}/check" class="d-inline"><button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-play-fill me-1"></i>Test now</button></form>
+            </td>
+          </tr>
+          {% endfor %}
+          {% if not websites %}
+          <tr><td colspan="7"><div class="empty-state"><div class="empty-icon"><i class="bi bi-globe2"></i></div><h6>No websites yet</h6><p class="text-muted small mb-0">Add your first website to start monitoring.</p></div></td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <h2 class="panel-title"><i class="bi bi-flag"></i>Recent incidents</h2>
+    <a href="{{ url_for('incidents') }}" class="btn btn-sm btn-outline-secondary">View all</a>
+  </div>
+  <div class="panel-body flush">
+    {% if recent_incidents %}
+    <div class="table-responsive">
+      <table class="table wp-table align-middle mb-0">
+        <thead><tr><th class="ps-4">ID</th><th>Website</th><th>Status</th><th>Started</th><th>Resolved</th><th>Duration</th><th>Cause</th></tr></thead>
+        <tbody>
+          {% for inc in recent_incidents %}
+          <tr>
+            <td class="ps-4"><code>#{{ inc.id }}</code></td>
+            <td class="cell-main">{{ inc.website_name }}</td>
+            <td>{% if inc.status == 'OPEN' %}<span class="status-pill is-down">Open</span>{% elif inc.status == 'RESOLVED' %}<span class="status-pill is-up">Resolved</span>{% else %}<span class="status-pill is-paused">{{ inc.status }}</span>{% endif %}</td>
+            <td><small>{{ inc.started_at.strftime('%b %d, %H:%M') if inc.started_at is not string else inc.started_at }}</small></td>
+            <td>{% if inc.resolved_at %}<small>{{ inc.resolved_at.strftime('%b %d, %H:%M') if inc.resolved_at is not string else inc.resolved_at }}</small>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td>{% if inc.duration_seconds is not none %}{% set mins = (inc.duration_seconds / 60)|round|int %}<small>{% if mins < 60 %}{{ mins }}m{% else %}{{ (mins / 60)|round(1) }}h{% endif %}</small>{% else %}<span class="text-muted">Ongoing</span>{% endif %}</td>
+            <td><small class="text-muted">{{ inc.cause_summary or '—' }}</small></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><div class="empty-icon success"><i class="bi bi-check-lg"></i></div><h6>No recent incidents</h6><p class="text-muted small mb-0">All systems are running smoothly.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
