@@ -1,2 +1,10 @@
-t1- python webapp.py
-t2- python -m workers.monitor_worker
+.\.venv\Scripts\Activate.ps1
+
+python -m database.init_db
+
+python -m pytest -v tests
+
+streamlit run Dashboard.py
+
+# Second terminal (background worker):
+python -m workers.monitor_worker
