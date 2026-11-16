@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 
 # Page Configuration
-st.set_page_config(page_title="Incidents & Outages — WebPulse", page_icon="🚨", layout="wide")
+st.set_page_config(page_title="Incidents — WebPulse", layout="wide")
 
 # Load CSS
 css_path = Path(__file__).resolve().parent.parent / "static" / "styles.css"
@@ -21,21 +21,21 @@ from components.status_badges import render_badge
 
 render_sidebar()
 
-st.title("Downtime Incidents & Outage Telemetry")
+st.title("Incidents")
 st.caption(
-    "Automated incident tracking initiated when consecutive check failures exceed the configured threshold. "
-    "Incidents are automatically marked resolved once the website returns to an operational state."
+    "An incident opens when a website fails two checks in a row. "
+    "It closes automatically when the website is back up."
 )
 
 col_r1, col_r2 = st.columns([4, 1])
 with col_r2:
-    if st.button("🔄 Refresh Incidents", use_container_width=True):
+    if st.button("Refresh", use_container_width=True):
         st.rerun()
 
 # ----------------------------------------------------
-# 1. Active Outages (Open Incidents)
+# 1. Open incidents
 # ----------------------------------------------------
-st.subheader("Active Incidents (Unresolved Outages)")
+st.subheader("Open incidents")
 
 with get_db() as session:
     open_incidents = (
@@ -46,7 +46,7 @@ with get_db() as session:
     )
 
 if not open_incidents:
-    st.success("✅ **All Systems Operational**: There are currently no active downtime incidents across any monitored website.")
+    st.success("No open incidents. All websites are up.")
 else:
     for inc in open_incidents:
         with get_db() as session:
@@ -65,15 +65,15 @@ else:
                 f"""
                 <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 0.8rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 700; color: #991b1b; font-size: 1.05rem;">🚨 Outage: {site_name}</span>
-                        <span class="wp-badge wp-badge-down">OPEN INCIDENT #{inc.id}</span>
+                        <span style="font-weight: 700; color: #991b1b; font-size: 1.05rem;">Down: {site_name}</span>
+                        <span class="wp-badge wp-badge-down">OPEN #{inc.id}</span>
                     </div>
                     <div style="font-size: 0.85rem; color: #7f1d1d; margin-top: 0.35rem;">
-                        Target: <code>{site_url}</code> | Started: {inc.started_at.strftime('%Y-%m-%d %H:%M:%S UTC')} | 
-                        <strong>Active Duration: {duration_str}</strong>
+                        Website: <code>{site_url}</code> | Started: {inc.started_at.strftime('%Y-%m-%d %H:%M:%S UTC')} | 
+                        <strong>Down for: {duration_str}</strong>
                     </div>
                     <div style="font-size: 0.82rem; color: #450a0a; margin-top: 0.3rem;">
-                        <strong>Root Cause:</strong> {inc.cause_summary or 'Service unavailable / network timeout'}
+                        <strong>Cause:</strong> {inc.cause_summary or 'Check failed'}
                     </div>
                 </div>
                 """,
@@ -83,7 +83,7 @@ else:
 st.markdown("<div class='wp-section-header'></div>", unsafe_allow_html=True)
 
 # ----------------------------------------------------
-# 2. Historical Resolved Incidents
+# 2. Incident history
 # ----------------------------------------------------
 st.subheader("Incident History")
 
@@ -94,7 +94,7 @@ website_options = {"All Websites": None}
 for w in all_websites:
     website_options[w.name] = w.id
 
-filter_site = st.selectbox("Filter by Monitored Target", options=list(website_options.keys()))
+filter_site = st.selectbox("Filter by website", options=list(website_options.keys()))
 selected_site_id = website_options[filter_site]
 
 with get_db() as session:
@@ -104,7 +104,7 @@ with get_db() as session:
     history_incidents = query.order_by(Incident.started_at.desc()).limit(100).all()
 
 if not history_incidents:
-    st.info("No incident records found matching the selected filter.")
+    st.info("No incidents found for this filter.")
 else:
     table_data = []
     for inc in history_incidents:
@@ -113,10 +113,10 @@ else:
             site_name = site.name if site else f"Site #{inc.website_id}"
 
         if inc.status == "OPEN":
-            status_col = "🚨 OPEN"
-            dur_display = "Active Outage"
+            status_col = "Open"
+            dur_display = "Still open"
         else:
-            status_col = "✅ RESOLVED"
+            status_col = "Resolved"
             if inc.duration_seconds is not None:
                 m, s = divmod(inc.duration_seconds, 60)
                 h, m = divmod(m, 60)
@@ -128,10 +128,10 @@ else:
             "ID": f"#{inc.id}",
             "Website": site_name,
             "Status": status_col,
-            "Started At (UTC)": inc.started_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "Resolved At (UTC)": inc.resolved_at.strftime("%Y-%m-%d %H:%M:%S") if inc.resolved_at else "In Progress",
-            "Downtime Duration": dur_display,
-            "Root Cause": inc.cause_summary or "--",
+            "Started": inc.started_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "Resolved": inc.resolved_at.strftime("%Y-%m-%d %H:%M:%S") if inc.resolved_at else "Still open",
+            "Downtime": dur_display,
+            "Cause": inc.cause_summary or "--",
         })
 
     st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
@@ -139,16 +139,16 @@ else:
 st.markdown("<div class='wp-section-header'></div>", unsafe_allow_html=True)
 
 # ----------------------------------------------------
-# 3. Alert Notification Dispatch Audit Log
+# 3. Alert log
 # ----------------------------------------------------
-st.subheader("Alert Notification Dispatch Log")
-st.caption("Audit trail of automated email alert attempts for downtime and recovery events.")
+st.subheader("Alert log")
+st.caption("Record of every downtime and recovery email sent.")
 
 with get_db() as session:
     alerts = IncidentRepository.get_alert_logs(session, limit=50)
 
 if not alerts:
-    st.info("No alert dispatch logs recorded yet.")
+    st.info("No alerts sent yet.")
 else:
     alert_records = []
     for a in alerts:
@@ -157,12 +157,12 @@ else:
             site_name = site.name if site else f"Site #{a.website_id}"
 
         alert_records.append({
-            "Timestamp (UTC)": a.sent_at.strftime("%Y-%m-%d %H:%M:%S") if a.sent_at else "--",
+            "Sent at": a.sent_at.strftime("%Y-%m-%d %H:%M:%S") if a.sent_at else "--",
             "Website": site_name,
             "Event": a.alert_type,
-            "Delivery Status": a.delivery_status,
+            "Delivery": a.delivery_status,
             "Recipient": a.recipient or "--",
-            "Details / Error": a.error_message or "Successfully dispatched",
+            "Details": a.error_message or "Sent",
         })
 
     st.dataframe(pd.DataFrame(alert_records), use_container_width=True, hide_index=True)
