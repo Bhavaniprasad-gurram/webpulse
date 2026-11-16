@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 
 def render_latency_trend_chart(df: pd.DataFrame, threshold_ms: int = 1500):
-    """Render interactive response time trend chart with polished gridlines, hover cards, and threshold line."""
+    """Response time line chart for the selected period."""
     if df.empty or "checked_at" not in df.columns:
         st.info("No latency datapoints recorded yet for the selected period.")
         return
@@ -24,7 +24,7 @@ def render_latency_trend_chart(df: pd.DataFrame, threshold_ms: int = 1500):
         labels={
             "checked_at": "Timestamp (UTC)",
             "response_time_ms": "Latency (ms)",
-            "website_name": "Target",
+            "website_name": "Website",
         },
     )
 
@@ -34,9 +34,9 @@ def render_latency_trend_chart(df: pd.DataFrame, threshold_ms: int = 1500):
         line_dash="dash",
         line_color="#f59e0b",
         line_width=1.5,
-        annotation_text=f"Degraded Threshold ({threshold_ms}ms)",
+        annotation_text=f"Slow limit ({threshold_ms} ms)",
         annotation_position="top right",
-        annotation_font=dict(size=10, color="#b45309", family="Plus Jakarta Sans"),
+        annotation_font=dict(size=10, color="#b45309"),
     )
 
     fig.update_traces(
@@ -47,7 +47,7 @@ def render_latency_trend_chart(df: pd.DataFrame, threshold_ms: int = 1500):
 
     fig.update_layout(
         template="plotly_white",
-        font=dict(family="Plus Jakarta Sans, sans-serif", color="#475569", size=11),
+        font=dict(color="#475569", size=11),
         hovermode="x unified",
         margin=dict(l=15, r=15, t=30, b=15),
         legend=dict(
@@ -78,7 +78,7 @@ def render_latency_trend_chart(df: pd.DataFrame, threshold_ms: int = 1500):
 
 
 def render_uptime_bar_chart(df: pd.DataFrame):
-    """Render sleek modern uptime percentage comparison bar chart."""
+    """Uptime % bar chart, one bar per website."""
     if df.empty or "uptime_pct" not in df.columns:
         st.info("No monitoring history available to compute uptime.")
         return
@@ -109,7 +109,7 @@ def render_uptime_bar_chart(df: pd.DataFrame):
                 ),
                 text=[f"<b>{v:.1f}%</b>" for v in valid_df["uptime_pct"]],
                 textposition="auto",
-                textfont=dict(size=11, family="Plus Jakarta Sans"),
+                textfont=dict(size=11),
                 hovertemplate="<b>%{x}</b><br>Uptime: <b>%{y:.2f}%</b><extra></extra>",
             )
         ]
@@ -117,7 +117,7 @@ def render_uptime_bar_chart(df: pd.DataFrame):
 
     fig.update_layout(
         template="plotly_white",
-        font=dict(family="Plus Jakarta Sans, sans-serif", color="#475569", size=11),
+        font=dict(color="#475569", size=11),
         yaxis=dict(
             range=[0, 108],
             title="",
@@ -133,8 +133,8 @@ def render_uptime_bar_chart(df: pd.DataFrame):
 
 
 def render_status_donut(summary: Dict[str, Any]):
-    """Render modern fleet health distribution donut chart with clean legend."""
-    labels = ["Operational", "Degraded (Slow)", "Outage", "Pending"]
+    """Donut chart: websites by current status."""
+    labels = ["Operational", "Slow", "Down", "Pending"]
     values = [
         summary.get("operational_count", 0),
         summary.get("degraded_count", 0),
@@ -155,7 +155,7 @@ def render_status_donut(summary: Dict[str, Any]):
                 hole=0.68,
                 marker=dict(colors=colors, line=dict(color="#ffffff", width=2)),
                 textinfo="value",
-                textfont=dict(family="Plus Jakarta Sans", size=12, color="#ffffff"),
+                textfont=dict(size=12, color="#ffffff"),
                 hovertemplate="<b>%{label}</b><br>Count: %{value}<br>Share: %{percent}<extra></extra>",
             )
         ]
@@ -168,7 +168,7 @@ def render_status_donut(summary: Dict[str, Any]):
         x=0.5,
         y=0.5,
         showarrow=False,
-        font=dict(family="Plus Jakarta Sans"),
+        font=dict(),
     )
 
     fig.update_layout(
@@ -180,7 +180,7 @@ def render_status_donut(summary: Dict[str, Any]):
             y=-0.15,
             xanchor="center",
             x=0.5,
-            font=dict(family="Plus Jakarta Sans", size=10),
+            font=dict(size=10),
         ),
         margin=dict(l=10, r=10, t=10, b=30),
         height=290,
